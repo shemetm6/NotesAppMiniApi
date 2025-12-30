@@ -7,9 +7,9 @@ public static class NoteEndpoints
 {
     public static void MapNoteEndpoints(this WebApplication app, List<User> users, List<Note> notes)
     {
-        app.MapPost("/note", (string login, 
-            string title, 
-            string description, 
+        app.MapPost("/note", (string login,
+            string title,
+            string description,
             bool? completionStatus,
             ExecutionPriority? executionPriority) =>
         {
@@ -18,7 +18,9 @@ public static class NoteEndpoints
 
             notes.Add(new Note()
             {
-                Id = notes.Count + 1, //Может продублироваться id при создании новой заметки, после удаления старых. Но мне кажется, что я и так перемудрил. Подправлю, если понадобится
+                //Может продублироваться id при создании новой заметки. 
+                //Но мне кажется, что я и так перемудрил. Подправлю при необходимости
+                Id = notes.Count + 1, 
                 Title = title,
                 Description = description,
                 CreationDate = DateTime.UtcNow,
@@ -27,9 +29,15 @@ public static class NoteEndpoints
                 ExecutionPriority = executionPriority ?? ExecutionPriority.Low
             });
 
-            return Results.NoContent(); //вот здесь изначально был Results.Ok(notes), по аналогии с консольным приложением. Но есть ощущение, что возвращать конкретные данные должен только GET-запрос. Это так?
+            //Вот здесь изначально был Results.Ok(notes), чтобы сразу отображать список для удобства. По аналогии с консольным приложением.
+            //Но есть ощущение, что возвращать конкретные данные должен только GET-запрос. Это так?
+            return Results.NoContent(); 
         });
 
+        //Жоска хочу отобразить названия констант из енума NotesSort, но не понимаю как. Из-за этого сортировка в интерфейсе сваггера выглядит супер неинтуитивно.
+        //Но возможно сама идея с enum была не очень, я хз
+        //Также по SRP тут тоже какой-то пиздец, обработчик ищет юзера, фильтрует, сортирует. Но по условию задачи вроде можно было делать в рамках одного запроса
+        //И как я понял, на одном route должен быть один get-запрос. Или нет?
         app.MapGet("/note", (string login,
             bool? completionStatus,
             ExecutionPriority? executionPriority,
@@ -46,11 +54,17 @@ public static class NoteEndpoints
             if (executionPriority != null)
                 query = query.Where(n => n.ExecutionPriority == executionPriority);
 
-            if (notesSort == NotesSort.CreationDate) //сортировка выглядит как говно т.к. не понял как отобразить в интерфейсе названия элементов енума.
-                query = query.OrderBy(n => n.CreationDate);
-
-            if (notesSort == NotesSort.ExecutionPriority)
-                query = query.OrderBy(n => n.ExecutionPriority);
+            switch (notesSort)
+            {
+                case NotesSort.CreationDate:
+                    query = query.OrderBy(n => n.CreationDate);
+                    break;
+                case NotesSort.ExecutionPriority:
+                    query = query.OrderBy(n => n.ExecutionPriority);
+                    break;
+                default:
+                    break;
+            }
 
             var filteredNotes = query.ToList();
 
@@ -73,13 +87,18 @@ public static class NoteEndpoints
             if (notes.TryFindUserNote(user, noteId, out Note note) == false)
                 return Results.NotFound();
 
+            //Я не понял как выдать ошибку доступа, кроме как указать вручную.
+            //А есть ощущение, что указывать код ошибки вручную не лучшая практика. Или нормально?
             if (note.CompletionStatus == true)
-                return Results.StatusCode(403); //я не понял как выдать ошибку доступа, кроме как указать вручную. А есть ощущение, что указывать код ошибки вручную не лучшая практика.
+                return Results.StatusCode(403);  
 
             note.Title = title ?? note.Title;
             note.Description = description ?? note.Description;
             note.CompletionStatus = completionStatus ?? note.CompletionStatus;
-            note.ExecutionPriority = executionPriority ?? note.ExecutionPriority; //Было бы круто в интерфейсе сваггера отобразить элементы enum в виде названий, а не числовых значений констант. Но я не понял как
+
+            //Опять же хочется в интерфейсе отобразить названия элементов енума, чтобы не тыкать на загадочные цифры.
+            //Но я не понял как
+            note.ExecutionPriority = executionPriority ?? note.ExecutionPriority; 
 
             return Results.NoContent();
         });
