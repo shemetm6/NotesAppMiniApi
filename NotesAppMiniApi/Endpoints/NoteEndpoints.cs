@@ -7,23 +7,27 @@ public static class NoteEndpoints
 {
     public static void MapNoteEndpoints(this WebApplication app, List<User> users, List<Note> notes)
     {
-        app.MapPost("/note", (string login, string title, string description) =>
+        app.MapPost("/note", (string login, 
+            string title, 
+            string description, 
+            bool? completionStatus,
+            ExecutionPriority? executionPriority) =>
         {
             if (users.TryFindUser(login, out User user) == false)
                 return Results.NotFound();
 
             notes.Add(new Note()
             {
-                Id = notes.Count + 1, //может продублироваться id при создании новой заметки, но мне кажется, что я и так перемудрил 
+                Id = notes.Count + 1, //Может продублироваться id при создании новой заметки, после удаления старых. Но мне кажется, что я и так перемудрил. Подправлю, если понадобится
                 Title = title,
                 Description = description,
                 CreationDate = DateTime.UtcNow,
-                CompletionStatus = false,
+                CompletionStatus = completionStatus ?? false,
                 UserId = user.Id,
-                ExecutionPriority = ExecutionPriority.Low
+                ExecutionPriority = executionPriority ?? ExecutionPriority.Low
             });
 
-            return Results.NoContent(); //вот здесь у меня изначально был Results.Ok(notes), по аналогии с консольным приложением, но есть ощущение, что возвращать конкретные данные должен только GET-запрос. Это так?
+            return Results.NoContent(); //вот здесь изначально был Results.Ok(notes), по аналогии с консольным приложением. Но есть ощущение, что возвращать конкретные данные должен только GET-запрос. Это так?
         });
 
         app.MapGet("/note", (string login, bool? completionStatus, ExecutionPriority? executionPriority) =>
@@ -60,12 +64,13 @@ public static class NoteEndpoints
             if (notes.TryFindUserNote(user, noteId, out Note note) == false)
                 return Results.NotFound();
 
+            if (note.CompletionStatus == true)
+                return Results.StatusCode(403); //я не понял как выдать ошибку доступа, кроме как указать вручную. А есть ощущение, что указывать код ошибки вручную не лучшая практика.
+
             note.Title = title ?? note.Title;
             note.Description = description ?? note.Description;
             note.CompletionStatus = completionStatus ?? note.CompletionStatus;
             note.ExecutionPriority = executionPriority ?? note.ExecutionPriority; //Было бы круто в интерфейсе сваггера отобразить элементы enum в виде названий, а не числовых значений констант. Но я не понял как
-
-            var userNotes = notes.Where(n => n.UserId == user.Id).ToList();
 
             return Results.NoContent();
         });
@@ -79,8 +84,6 @@ public static class NoteEndpoints
                 return Results.NotFound();
 
             notes.Remove(note);
-
-            var userNotes = notes.Where(n => n.UserId == user.Id).ToList();
 
             return Results.NoContent();
         });

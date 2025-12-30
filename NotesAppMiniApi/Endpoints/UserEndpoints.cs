@@ -13,6 +13,7 @@ public static class UserEndpoints
                 Id = users.Count + 1,
                 Login = login
             });
+
             return Results.NoContent();
         });
 
