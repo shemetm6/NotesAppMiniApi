@@ -30,7 +30,10 @@ public static class NoteEndpoints
             return Results.NoContent(); //вот здесь изначально был Results.Ok(notes), по аналогии с консольным приложением. Но есть ощущение, что возвращать конкретные данные должен только GET-запрос. Это так?
         });
 
-        app.MapGet("/note", (string login, bool? completionStatus, ExecutionPriority? executionPriority) =>
+        app.MapGet("/note", (string login,
+            bool? completionStatus,
+            ExecutionPriority? executionPriority,
+            NotesSort? notesSort) =>
         {
             if (users.TryFindUser(login, out User user) == false)
                 return Results.NotFound();
@@ -42,6 +45,12 @@ public static class NoteEndpoints
 
             if (executionPriority != null)
                 query = query.Where(n => n.ExecutionPriority == executionPriority);
+
+            if (notesSort == NotesSort.CreationDate) //сортировка выглядит как говно т.к. не понял как отобразить в интерфейсе названия элементов енума.
+                query = query.OrderBy(n => n.CreationDate);
+
+            if (notesSort == NotesSort.ExecutionPriority)
+                query = query.OrderBy(n => n.ExecutionPriority);
 
             var filteredNotes = query.ToList();
 
